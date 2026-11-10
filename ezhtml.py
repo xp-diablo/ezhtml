@@ -1,53 +1,48 @@
 '''
-	EZHTML by diablo.
+EZHTML by diablo
 
-	EZHTML is an easy to use python module to code HTML without actually coding any HTML.
-	For practical uses.... can't really think of any actual real world uses, unless you needed
-	help understanding how HTML works I guess.
+EZHTML is an easy-to-use python module to write HTML code without actually writing HTML.
 '''
 
 import sys
 
 class TEXT_ORDER:
 	'''
-		Used for declaring whether the HTML element will require the innerText
-		to be before any other child HTML elements, or after the children.
+		Used for declaring whether the inner text of the HTML element will be put before or after other children elements.
 	'''
 	FIRST = True
-	LAST  = False
+	LAST = False
 
 
 class Element:
 	'''
-		An HTML element. Can be any type of HTML element. From "html" to "body", from "div" to "img".
+		An HTML Element (html, body, div, img, etc.)
 	'''
-	def __init__(self, tag_: str, attr=dict(), text=str()):
-		'''
-			tag_ : the HTML tag for the element
-			attr : a dictionary containing any attributes required for the element (can be added later)
-			text : the innerText for the HTML element
-		'''
-		self.__tag = tag_
-		self.__Attributes = attr
-		self.__children = {}
-		self.__text_order = True
-		self.__text = text
 
-		# make the Attributes for the html tag be an actual part of the element, rather than "myElement.attribute['id'] = blahblahblah"
+	def __init__(self, tag_: str, attr=dict(), text=str()):
+
+		self.__tag = tag_               # <html> <div> <img> <href>...
+		self.__Attributes = attr        # src=""
+		self.__children = {}            # <html><div tag="child"></div></html>
+		self.__text_order = True        # <div>Before<child/></div> <div><child/>After</div>
+		self.__text = text              # <div> My Text Here </div>
+
+		# make the attributes for the html tag be an acual part of the element, rather than "myElement.attribute['id'] = blahblahblah"
 		for key in self.__Attributes.keys():
 			setattr(self, key, self.__Attributes[key])
-
+    
 	def appendChild(self, child):
 		'''
-			Append a child Element object to this element
+			Append a child element object to this element
 		'''
-		self.__children[child.tag] = child # store the data of all the elements
-		setattr(self, child.tag, child) #make the child a part of the parent
+		self.__children[child.tag]=child
+		setattr(self, child.tag, child)
 
 	def childrenCount(self):
 		'''
-			Gather the count of all the children in this html document, and all the other nested children
+			Get the count of all the children inside this html element (and nested children)
 		'''
+
 		ctr = 0
 		for child in self.__children.values():
 			ctr += 1 + child.childrenCount()
@@ -57,10 +52,11 @@ class Element:
 	def head(self):
 		'''
 			The HTML tag head; i.e. '<div id="bruh">'
+		
 		'''
 		r = f'<{self.tag}'
-		for attr in self.__Attributes.items():
-			r += ' ' + attr[0] + '="' + attr[1] + '"'
+		for attribute in self.__Attributes.items():
+			r += f' {attribute[0]}="{attribute[1]}"'
 		return r + '>'
 
 	@property
@@ -73,7 +69,7 @@ class Element:
 	@property
 	def children(self):
 		'''
-			See the children this element has. (Non-recursive)
+			Get the list of children this element has (Non-recursive)
 		'''
 		return self.__children
 
@@ -116,19 +112,26 @@ class Element:
 		return self.__Attributes
 
 	@attributes.setter
-	def attributes(self, val):
+	def attributes(self, val: dict):
 		if type(val) != dict:
-			print("Cannot set attributes to a non-dict object")
-			sys.exit(1)
+			print('Must set attributes to a dict...')
+			raise Exception()
 		else:
 			self.__Attributes = val
-	
-	def add_attr(self, attr: str, val: str)->None:
-		self.__Attributes[attr]=val
+
+	def add_attr(self, attr:str, val: str)-> None:
+		'''
+			Add an attribute to this element
+		'''
+		self.__Attributes[attr] = val
 		setattr(self, attr, val)
-	
-	def rem_attr(self, attr: str)-> bool:
-		#should an error occur (maybe because that attribute does not exist), will return False
+
+	def rem_attr(self, attr: str) -> bool:
+		'''
+			Remove an attribute from this element
+		'''
+
+		# should an error occur (maybe the attribute doesn't exist?), will return False
 		try:
 			del self.__Attributes[attr]
 			delattr(self, attr)
@@ -140,36 +143,50 @@ class Element:
 		return prettify(self)
 
 	def __repr__(self):
-		return f'element: {self.tag}; {self.childrenCount()} child(ren)'	
+		return f'Element: {self.tag}; {self.childrenCount()} child(ren)'
 
-def _r_html_blocks_to_str(child: dict)-> str:
-	'''
-		Outputs the text of the children elements and the parent element.
-	'''
-	ret = str()
-	tag = child['tag']
-	text = child['text']
-	head = child['head']
-	tabsize = child['tabsize']
-	textorder = child['textorder']
 
-	ret += '\n' + ('\t' * tabsize) + head
-	if textorder:
-		if len(text) > 1:
+	# # # # # # # #
+	#
+	#
+	# END OF CLASS
+	#
+	#
+	# # # # # # # #
+
+def _r_html_blocks_to_str(child: dict) -> str:
+	'''
+		Output the text of the children elements and the parent element.
+
+		Recursive method
+	'''
+	ret = str() 					# final output string
+	tag = child['tag']				# element tag
+	text = child['text']			# inner text
+	head = child['head']			# head of the elmement
+	tabsize = child['tabsize']		# size of tabs
+	textorder = child['textorder']	# order of the inner text
+
+	ret += f'\n{'\t'*tabsize}{head}' # add a new line, tab out the text and place the new element
+
+	if textorder:					# text goes before the children
+		if len(text) > 1:			# check if the text has a value/isn't empty
 			ret += child['text']
-	
-	if len(child['children']) >= 1:
-		for c in child['children']:
+
+	if len(child['children']) >= 1:				# does this element have children elements?
+		for c in child['children']:				# iterate through each child element
 			ret += _r_html_blocks_to_str(c)
-	if not textorder:
-		if len(text) > 1:
-			ret += '\n' + ('\t' * (tabsize+1)) + f'{text}'
+
+	if not textorder:		# < ==  ==  ==  ==  	# the text is after the child element 
+		if len(text) > 1:							# the inner text is not empty
+			ret += f'\n{ "\t" * (tabsize+1)}{text}'
 
 	if not len(child['children']) >= 1:
-		ret +=  f'</{tag}>'
+		ret += f'</{tag}>' if notSelfClosing(Element(tag)) else ''
 	else:
-		ret += '\n' + ('\t' * tabsize) + f'</{tag}>'
-	return ret
+		ret += f'\n{"\t"*tabsize}</{tag}>' if notSelfClosing(Element(head)) else ''
+
+	return ret		# output the final string
 
 def _r_html_child_tabs_text(element: Element, ctr: int)-> dict:
 	# get the formatted information for each html element and child
@@ -181,43 +198,48 @@ def _r_html_child_tabs_text(element: Element, ctr: int)-> dict:
 			ret['children'].append(_r_html_child_tabs_text(child, ctr + 1))
 	return ret
 
+def notSelfClosing(element: Element) -> bool: # returns True if the element is not in the list
+	return not element.tag in ('img', 'br', 'hr', 'input', 'meta', 'link') # returns false if it is in the list
 
 
-def prettify(html_element: Element, type_ = 'html')-> str:
+def prettify(html_element: Element, type_='html') -> str:
 	'''
-		Returns pretty formatted HTML code.
+		Returns a pretty formatted HTML code
 	'''
-	res = str()
 
-	#if the document is to be in HTML5
-	if type_ == 'html5':
-		res += '<!DOCTYPE html>\n'
+	res = str() # final result string
 
-	res += f'{html_element.head}'
-	if html_element.childrenCount() >= 1:
+	if type_ == 'html5':				# check if we want to write the html5 header
+		res += '<!DOCTYPE html>\n'		# write it so
+
+	res += f'{html_element.head}'			# add the head of the html element
+	if html_element.childrenCount() >= 1:	# if there is a child element....
 		children = []
-		for child in html_element.children.items():
-			children.append(_r_html_child_tabs_text(child[1], 1))
+		for child in html_element.children.items():		# loop through the child elements...
+			children.append(_r_html_child_tabs_text(child[1], 1))	# begin adding the string of the child element to our list
 
-		for child in children:
-			res += _r_html_blocks_to_str(child)
-	res += f'\n{html_element.foot}'
-	return res
+		for child in children:						# begin iterating though our strings
+			res += _r_html_blocks_to_str(child)		# add the formatted text of the element to our resulting string
 
-def save_html(path: str, html: Element, html5 = True, verbose= False):
+	res += f'\n{html_element.foot}' if notSelfClosing(html_element) else '' #add the foot 
+	return res		# return our resulting string
+
+
+
+def save_html(path: str, html: Element, html5=True, verbose=False):
 	'''
 		Save the HTML element object to a file.
 
 		path    : path to file
 		html    : the Element to write
-		html5   : Is the document HTML5, or not
-		verbose : Let you know if the file saved properly
+		html5   : Is the document HTML5, or not (OFF by DEFAULT)
+		verbose : Prints when the file finishes saving
 	'''
 	with open(path, 'w') as file:
 		res = None
-		if html5:
+		if html5:		# we require the html5 header
 			res = prettify(html, 'html5')
-		else:
+		else:			# we do not require the html5 header
 			res = prettify(html)
 
 		file.write(res)
