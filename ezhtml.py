@@ -8,15 +8,16 @@ import sys
 
 class TEXT_ORDER:
     '''
-        Used for declaring whether the inner text of the html element will be put before or after other child elements
+        Used for declaring whether the inner text of the html element will be put before or after other sub elements
     '''
     FIRST = True
     LAST  = False
 
 class TAGS:
-    VOIDS = ('area', 'base', 'br', 'col', 'embed', 'hr', 
-             'input', 'img', 'link', 'meta', 'param', 
-             'source', 'track', 'wbr')
+    VOIDS = (
+    "area", "base", "br", "col", "embed", "hr", "img",
+    "input", "link", "meta", "source", "track", "wbr")
+
 
 
 class Element:
@@ -27,34 +28,57 @@ class Element:
     def __init__(self, tag: str, attr: dict=dict(), text :str=str())-> None:
         self.tag = tag                      # name of the element
         self._attributes = attr             # i.e., src="this.js"
-        self.children = {}                  # Child elements
-        self.text_order = TEXT_ORDER.FIRST  # By default, the text inside the element will appear before or after the children
+        self.subs = []                  # Sub elements
+        self.text_order = TEXT_ORDER.FIRST  # By default, the text inside the element will appear before or after the subs
         self.text = text                    # the inner text inside the element
         self.self_close = True if tag in TAGS.VOIDS else False  # does this element close itself normally? Auto check for us
                                                                 # we can change this later if we need
-        for key in self._attributes.keys():             # add the attributes to our class. Make it
-            setattr(self, key, self._attributes[key])   # easily accessible
+        #for key in self._attributes.keys():             # add the attributes to our class. Make it
+        #    setattr(self, key, self._attributes[key])   # easily accessible
 
-    def appendChild(self, child) -> None:
+    def appendSub(self, sub) -> None:
         '''
-            Append a child elment to the parent.
+            Append a sub elment to the parent.
             (The order you append them in does matter!)
         '''
+        for c in self.subs:
+            if (c.tag == sub.tag and c._attributes == sub.attributes
+                and c.text == sub.text):
+                raise ValueError(f"Duplicates <{sub.tag}> has already been appended")
+        self.subs.append(sub)
+        return sub
 
-        self.children[child.tag]=child
-        setattr(self,child.tag, child)
+    def append(self, sub):    # easier way to type Element.appendSub()
+        self.appendSub(sub)
 
-    def append(self, child):    # easier way to type Element.appendChild()
-        self.appendChild(child)
-
-
-    def countChildren(self):
+    
+    def subTag(self, tag):
         '''
-            Get the count of all the children inside this html element (and nested children)
+            Grab the sub data from the sub elements
+        '''
+        out = [c for c in self.subs if c.tag == tag]
+        for c in self.subs:
+            if hasattr(c, 'subTag'):
+                out.extend(c.subTag(tag))
+        return out
+    
+    def searchSubs(self, tag, **attrs):
+        '''
+            Find a sub element by tags + distiguishing attributes
+        '''
+        for c in self.subTag(tag):
+            if all(c.attributes.get(k) == v for k, v in attrs.items()):
+                return c
+        return None
+
+
+    def countSubs(self):
+        '''
+            Get the count of all the subs inside this html element (and nested subs)
         '''
         ctr = 0
-        for child in self.children.values():
-            ctr += 1 + child.countChildren()
+        for sub in self.subs:
+            ctr += 1 + sub.countSubs()
         return ctr
 
     @property
@@ -90,7 +114,7 @@ class Element:
             Another method to add attributes.
         '''
         self._attributes[var_] = val
-        setattr(self, attr, val)
+        setattr(self, var_, val)
 
     def add_attr(self, var_: str, val: str) -> None:
         '''
@@ -115,38 +139,38 @@ class Element:
         return self.rem_attribute(attr_var)
 
 
-    def _stringify(self, child: dict) -> str:
+    def _stringify(self, sub: dict) -> str:
         '''
             Convert this element to a string representation of
-            the HTML. This returning string will include child elements.
+            the HTML. This returning string will include sub elements.
 
             This is a recursive method
             This code is not fomratted to be pretty.
         '''
         ret = str()             # final str
-        ret += f'{child["head"]}'
-        closing = child['self_close']
+        ret += f'{sub["head"]}'
+        closing = sub['self_close']
         if closing:
             return ret
 
 
-        tag         =   child['tag']
-        text        =   child['text']
-        head        =   child['head']
-        textorder   =   child['textorder']
-        closing     =   child['self_close']
+        tag         =   sub['tag']
+        text        =   sub['text']
+        head        =   sub['head']
+        textorder   =   sub['textorder']
+        closing     =   sub['self_close']
 
 
         if textorder:                       # check if we must put the element text before
-            if len(text) >= 1:              # the children. But ensure we don't write an empty
+            if len(text) >= 1:              # the subs. But ensure we don't write an empty
                 ret += text                 # string to the final result
 
-        if len(child['children']) >= 1:     # does this element have child elements?
-            for c in child['children']:     # if so, start processing the child elements
+        if len(sub['subs']) >= 1:     # does this element have sub elements?
+            for c in sub['subs']:     # if so, start processing the sub elements
                 ret += self._stringify(c)
 
         if not textorder:                   # check if we must put the element text after
-            ret += text                     # the children elements
+            ret += text                     # the subs elements
 
         ret += f'</{tag}>'                  # close out our element
         return ret
@@ -154,12 +178,12 @@ class Element:
     def __str__(self):
         res = str()
         res += self.head
-        children = []
-        for child in self.children.items():
-            children.append(_makeChildTabs(child[1], 1))
+        subs = []
+        for sub in self.subs:
+            subs.append(_makeSubTabs(sub, 1))
 
-        for child in children:
-            res += self._stringify(child)
+        for sub in subs:
+            res += self._stringify(sub)
 
         if not self.self_close:
             res += f'</{self.tag}>'
@@ -176,24 +200,24 @@ class Element:
      # # # # # # # # # # # # # # # #
 
 
-def _makeChildTabs(element: Element, ctr: int) -> dict:
+def _makeSubTabs(element: Element, ctr: int) -> dict:
     '''
-        Convert child elements to dictionaries containing variables which are
+        Convert sub elements to dictionaries containing variables which are
         necessary to output to string.
 
         This is a recursive method.
     '''
     ret = {'tag': element.tag, 'head': element.head, 'tabsize': ctr, 
-           'children': [], 'text': element.text, 'textorder': element.text_order,
+           'subs': [], 'text': element.text, 'textorder': element.text_order,
            'self_close': element.self_close}
 
-    if element.countChildren() >= 1:
-        for child in element.children.values():
-            ret['children'].append(_makeChildTabs(child, ctr+1))
+    if element.countSubs() >= 1:
+        for sub in element.subs.values():
+            ret['subs'].append(_makeSubTabs(sub, ctr+1))
     return ret
 
 
-def _to_pretty_str(child: dict):
+def _to_pretty_str(sub: dict):
     '''
             Similar to Element_stringify, but includes formatting to generate
             pretty, easy to read HTML code.
@@ -205,50 +229,57 @@ def _to_pretty_str(child: dict):
 
     ret = str()             # final str
 
-    ret += f'\n{"\t"*child['tabsize']}{child["head"]}'  # add the entire head of the element
+    ret += f'\n{"\t"*sub['tabsize']}{sub["head"]}'  # add the entire head of the element
 
-    if child['self_close']:     # don't worry about the rest of the code if the element is 
+    if sub['self_close']:     # don't worry about the rest of the code if the element is 
                                 # self closing
         return ret
 
-    tag         =   child['tag']
-    text        =   child['text']
-    head        =   child['head']
-    textorder   =   child['textorder']
+    tag         =   sub['tag']
+    text        =   sub['text']
+    head        =   sub['head']
+    textorder   =   sub['textorder']
 
 
-    if textorder:                       # does the text go before the children?
+    if textorder:                       # does the text go before the subs?
         if len(text) >= 1:              # let's make sure the text actually has contents
             ret += text
-    if len(child['children']) >= 1:     # does this element have child elements?
-        for c in child['children']:     # loop through the children, continue working on the elements
+    if len(sub['subs']) >= 1:     # does this element have sub elements?
+        for c in sub['subs']:     # loop through the subs, continue working on the elements
             ret += _to_pretty_str(c)
 
-    if not textorder:                   # check again if the text goes after the the child Element_stringify
-        ret += f'\n{ "\t" * (child["tabsize"]+1)}{text}'
+    if not textorder:                   # check again if the text goes after the the sub Element_stringify
+        ret += f'\n{ "\t" * (sub["tabsize"]+1)}{text}'
 
-    if len(child['children']) >= 1:     # do we need to indent for child elements?
-        ret += f'\n{"\t" * child["tabsize"]}'
+    if len(sub['subs']) >= 1:     # do we need to indent for sub elements?
+        ret += f'\n{"\t" * sub["tabsize"]}'
 
-    ret += f'\n{"\t"*child["tabsize"]}</{tag}>' # close out our element
+    # ret += \n\t"*sub["tabsize"]}</{tag}>'
+    ret += f'</{tag}>' # close out our element
     return ret
 
-def prettify(html_element: Element, type_='html5') -> str:
+def prettify(html_element: Element, type_='html') -> str:
     '''
         Returns pretty formatted HTML code
     '''
     res = str()
-    if type_ == 'html5':            # check if we should add the html5 header (enabled by default)
+    if type_ == 'html5':            # check if we should add the html5 header
         res += '<!DOCTYPE html>\n'
 
     res += f'{html_element.head}'           # add our parent element 
-    if html_element.countChildren() >= 1:   # then check if we have child elemenets 
-        children = []
-        for child in html_element.children.items():         # loop through our child elements
-            children.append(_makeChildTabs(child[1], 1))    # and make them into parsable data
 
-        for child in children:              # begin looping through our parsable data
-            res += _to_pretty_str(child)    # start creating the string values of our children
+    if html_element.text_order and len(html_element.text) >= 1:
+        res += str(html_element.text)
+
+    if html_element.countSubs() >= 1:   # then check if we have sub elemenets 
+        subs = []
+        for sub in html_element.subs:         # loop through our sub elements
+            subs.append(_makeSubTabs(sub, 1))    # and make them into parsable data
+
+        for sub in subs:              # begin looping through our parsable data
+            res += _to_pretty_str(sub)    # start creating the string values of our subs
+    if not html_element.text_order and len(html_element.text) >= 1:
+        res += str(html_element.text)
     if not html_element.self_close:         # double check if our element is self closing
         res += f'\n{html_element.foot}'     # if it isn't we add the foot
     return res
